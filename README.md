@@ -1,43 +1,28 @@
-# HELPDESKAPP
+# Tech stack, versions, and local/dev/prod parity
 
-## Tech stack, versions, and local/dev/prod parity
+## 1) Chosen stack & pinned versions (recommended)
 
-1) Chosen stack & pinned versions (recommended)
+* **Language**: Python `3.11` (use 3.11.x).
+* **Django**: `5.2.*` (LTS target).
+* **Django REST Framework**: `>=3.15,<4.0`.
+* **Database**: PostgreSQL `15` (server) / `psycopg2-binary` client.
+* **Cache / Broker**: Redis `7`.
+* **Background jobs**: Celery `5.2.*`.
+* **Web server (prod)**: Gunicorn `20.1.*`.
+* **Static serving (prod)**: Whitenoise `6.*` (if using Gunicorn + S3 optional).
+* **Task scheduler**: Celery Beat (comes with Celery).
+* **Frontend basics**: Vanilla HTML/CSS/JS; FullCalendar `6.x` for calendar UI.
+* **Containerization**: Docker (Engine) + docker-compose v2 format.
+* **Lint / Formatting**: black, isort, ruff, flake8 (dev tools).
+* **CI/CD**: GitHub Actions (ubuntu-latest runners).
 
-Language: Python 3.11 (use 3.11.x).
-
-Django: 5.2.* (LTS target).
-
-Django REST Framework: >=3.15,<4.0.
-
-Database: PostgreSQL 15 (server) / psycopg2-binary client.
-
-Cache / Broker: Redis 7.
-
-Background jobs: Celery 5.2.*.
-
-Web server (prod): Gunicorn 20.1.*.
-
-Static serving (prod): Whitenoise 6.* (if using Gunicorn + S3 optional).
-
-Task scheduler: Celery Beat (comes with Celery).
-
-Frontend basics: Vanilla HTML/CSS/JS; FullCalendar 6.x for calendar UI.
-
-Containerization: Docker (Engine) + docker-compose v2 format.
-
-Lint / Formatting: black, isort, ruff, flake8 (dev tools).
-
-CI/CD: GitHub Actions (ubuntu-latest runners).
-
-
-(These choices balance modern Python features, long-term Django support, and ecosystem stability.)
-
+*(These choices balance modern Python features, long-term Django support, and ecosystem stability.)*
 
 ---
 
-2) Repo layout (important context)
+## 2) Repo layout (important context)
 
+```
 helpdesk/
 ├── .github/
 │   └── workflows/
@@ -59,14 +44,15 @@ helpdesk/
 ├── docker-compose.yml
 ├── .env.example
 └── README.md
-
+```
 
 ---
 
-3) requirements.txt (example pins)
+## 3) `requirements.txt` (example pins)
 
-Create requirements.txt at project root:
+Create `requirements.txt` at project root:
 
+```text
 # Core
 Django==5.2
 djangorestframework>=3.15,<4.0
@@ -94,18 +80,17 @@ pytest-django==4.7.0
 black==24.4.0
 isort==5.12.0
 ruff==0.28.0
+```
 
-> You can pip-compile or pin further as you stabilize; CI should run tests across pinned set.
-
-
-
+> You can `pip-compile` or pin further as you stabilize; CI should run tests across pinned set.
 
 ---
 
-4) .env.example (copy into .env locally and set secrets)
+## 4) `.env.example` (copy into `.env` locally and set secrets)
 
-Create .env.example (DO NOT commit .env containing real secrets):
+Create `.env.example` (DO NOT commit `.env` containing real secrets):
 
+```ini
 # .env.example
 # General
 DJANGO_SECRET_KEY=replace-me-with-a-secure-random-string
@@ -132,14 +117,15 @@ STATIC_ROOT=/vol/web/static
 
 # Production overrides (example)
 SENTRY_DSN=
-
+```
 
 ---
 
-5) Dockerfile (production-oriented, but works for dev builds)
+## 5) `Dockerfile` (production-oriented, but works for dev builds)
 
-Create Dockerfile at project root:
+Create `Dockerfile` at project root:
 
+```dockerfile
 # Dockerfile
 FROM python:3.11-slim
 
@@ -174,21 +160,20 @@ EXPOSE 8000
 
 # default command for local development; in prod we run via gunicorn in kubernetes/systemd
 CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "3"]
+```
 
 Notes:
 
-In production you might build static assets in CI then run collectstatic during image build or entrypoint.
-
-Use a non-root user for security.
-
-
+* In production you might build static assets in CI then run `collectstatic` during image build or entrypoint.
+* Use a non-root user for security.
 
 ---
 
-6) docker-compose.yml for local development
+## 6) `docker-compose.yml` for local development
 
-Create a docker-compose.yml at project root to spin up DB, redis, web, worker, and beat:
+Create a `docker-compose.yml` at project root to spin up DB, redis, web, worker, and beat:
 
+```yaml
 version: "3.9"
 services:
   db:
@@ -262,23 +247,22 @@ services:
 volumes:
   postgres_data:
   redis_data:
+```
 
 Notes:
 
-volumes allow edit/reload behaviour locally. In CI/prod you won’t mount source code like this.
-
-env_file points to .env (copy from .env.example and set secrets).
-
-
+* `volumes` allow edit/reload behaviour locally. In CI/prod you *won’t* mount source code like this.
+* `env_file` points to `.env` (copy from `.env.example` and set secrets).
 
 ---
 
-7) Django settings architecture & example snippets
+## 7) Django settings architecture & example snippets
 
-Goal: keep parity but separate dev/prod concerns. Use settings/base.py for common settings; dev.py and prod.py import base and override.
+**Goal:** keep parity but separate dev/prod concerns. Use `settings/base.py` for common settings; `dev.py` and `prod.py` import base and override.
 
-config/settings/base.py (important snippets)
+### `config/settings/base.py` (important snippets)
 
+```python
 # base.py
 import os
 from pathlib import Path
@@ -362,9 +346,11 @@ REST_FRAMEWORK = {
 # Timezone
 TIME_ZONE = "UTC"
 USE_TZ = True
+```
 
-config/settings/dev.py
+### `config/settings/dev.py`
 
+```python
 from .base import *
 
 DEBUG = True
@@ -375,9 +361,11 @@ EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
 # Use local filebased cache if needed
 CACHES["default"]["LOCATION"] = "redis://redis:6379/0"
+```
 
-config/settings/prod.py
+### `config/settings/prod.py`
 
+```python
 from .base import *
 import dj_database_url
 from pathlib import Path
@@ -408,14 +396,15 @@ DATABASES["default"] = dj_database_url.parse(env("DATABASE_URL"), conn_max_age=6
 
 # Staticfiles served by CDN, but whitenoise can serve as fallback
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+```
 
-How to choose which to load at runtime: set DJANGO_SETTINGS_MODULE=config.settings.dev for local dev and config.settings.prod for production.
-
+**How to choose which to load at runtime:** set `DJANGO_SETTINGS_MODULE=config.settings.dev` for local dev and `config.settings.prod` for production.
 
 ---
 
-8) Celery quick config snippet (config/celery_app.py)
+## 8) Celery quick config snippet (`config/celery_app.py`)
 
+```python
 # config/celery_app.py
 import os
 from celery import Celery
@@ -426,92 +415,71 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.dev")  # change
 app = Celery("config")
 app.config_from_object("django.conf:settings", namespace="CELERY")
 app.autodiscover_tasks()
+```
 
-When deploying to prod, make sure DJANGO_SETTINGS_MODULE is config.settings.prod.
-
-
----
-
-9) Local / Dev / Prod parity rules (principles + specific differences)
-
-Parity principle: keep local dev behavior as similar to prod as practical (same DB server type, same broker, same static handling), but allow safety & developer ergonomics differences.
-
-What to keep identical (parity):
-
-Use PostgreSQL in dev (docker-compose) — same major version as prod (Postgres 15).
-
-Use Redis in dev for cache and Celery broker.
-
-Use the same DATABASE_URL / REDIS_URL env pattern so code reads same env vars.
-
-Same Django INSTALLED_APPS and middleware ordering where possible.
-
-Same REST API behavior and error formats.
-
-Use same package versions (pin in requirements.txt) across environments.
-
-
-What to differ (safety/dev ergonomics):
-
-DEBUG=True in dev (but use dev tools to inspect errors); DEBUG=False in prod.
-
-Email backend: dev uses console backend; prod uses SMTP or SendGrid.
-
-Static file handling: dev may use runserver + staticfiles; prod uses collectstatic + whitenoise or CDN (S3 + CloudFront).
-
-Secrets / keys: store sensitive values in environment variables or secret manager; never commit .env.
-
-Allowed hosts: loosen in dev (localhost), locked in prod.
-
-Logging level: DEBUG in dev, INFO/WARN in prod; prod should integrate with Sentry or centralized logging.
-
-
-Operational parity:
-
-Use the same entrypoint commands for migrations & collectstatic in CI/CD (so migration issues surface early).
-
-Run the same tests in CI as you run locally (pytest).
-
-Use Docker both locally and in CI to ensure runtime parity.
-
-
+When deploying to prod, make sure `DJANGO_SETTINGS_MODULE` is `config.settings.prod`.
 
 ---
 
-10) Commands to bootstrap locally (copy/paste)
+## 9) Local / Dev / Prod parity rules (principles + specific differences)
 
-1. Create .env from example:
+**Parity principle:** keep local dev behavior as similar to prod as practical (same DB server type, same broker, same static handling), but allow safety & developer ergonomics differences.
 
+**What to keep identical (parity):**
 
+* Use PostgreSQL in dev (docker-compose) — same major version as prod (Postgres 15).
+* Use Redis in dev for cache and Celery broker.
+* Use the same `DATABASE_URL` / `REDIS_URL` env pattern so code reads same env vars.
+* Same Django `INSTALLED_APPS` and middleware ordering where possible.
+* Same REST API behavior and error formats.
+* Use same package versions (pin in `requirements.txt`) across environments.
 
+**What to differ (safety/dev ergonomics):**
+
+* `DEBUG=True` in dev (but use dev tools to inspect errors); `DEBUG=False` in prod.
+* Email backend: dev uses console backend; prod uses SMTP or SendGrid.
+* Static file handling: dev may use `runserver` + staticfiles; prod uses `collectstatic` + whitenoise or CDN (S3 + CloudFront).
+* Secrets / keys: store sensitive values in environment variables or secret manager; never commit `.env`.
+* Allowed hosts: loosen in dev (localhost), locked in prod.
+* Logging level: DEBUG in dev, INFO/WARN in prod; prod should integrate with Sentry or centralized logging.
+
+**Operational parity:**
+
+* Use the same entrypoint commands for migrations & collectstatic in CI/CD (so migration issues surface early).
+* Run the same tests in CI as you run locally (pytest).
+* Use Docker both locally and in CI to ensure runtime parity.
+
+---
+
+## 10) Commands to bootstrap locally (copy/paste)
+
+1. Create `.env` from example:
+
+```bash
 cp .env.example .env
 # edit .env with secure DJANGO_SECRET_KEY before running
+```
 
 2. Build and run dev stack:
 
-
-
+```bash
 docker compose up --build
 # or
 docker-compose up --build
+```
 
 3. Create a superuser (if web container is running and migrations finished):
 
-
-
+```bash
 docker compose exec web python manage.py createsuperuser
+```
 
-4. Run Celery worker/beat (already in docker-compose as separate services) - logs viewable via docker compose logs -f worker etc.
-
-
-
+4. Run Celery worker/beat (already in docker-compose as separate services) - logs viewable via `docker compose logs -f worker` etc.
 
 ---
 
-11) Notes on CI/CD parity
+## 11) Notes on CI/CD parity
 
-CI should use the same Dockerfile and requirements.txt to run tests. This avoids “works locally, fails in CI” caused by mismatched packaging.
-
-Use GitHub Actions matrix for lint/test steps but run the integration test suite in a container that spins up Postgres & Redis (services) mirroring docker-compose.
-
-In CI you should set DJANGO_SETTINGS_MODULE=config.settings.test (optional) and point DB to service host.
+* CI should **use the same Dockerfile** and `requirements.txt` to run tests. This avoids “works locally, fails in CI” caused by mismatched packaging.
+* Use GitHub Actions matrix for lint/test steps but run the integration test suite in a container that spins up Postgres & Redis (services) mirroring `docker-compose`.
+* In CI you should set `DJANGO_SETTINGS_MODULE=config.settings.test` (optional) and point DB to service host.
