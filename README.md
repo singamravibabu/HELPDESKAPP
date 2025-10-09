@@ -1,8 +1,6 @@
 # HELPDESKAPP
 
-Nice — Lesson 3 coming right up. Below I give a concrete, copy-paste-ready tech-stack spec, exact version pins, and the local / dev / prod parity setup you should use. I include ready-to-use files you can drop into your repo: Dockerfile, docker-compose.yml (dev), requirements.txt, and .env.example, plus clear guidance and snippets for settings/base.py, settings/dev.py, and settings/prod.py. Follow these and your local environment will closely mirror staging/production while keeping safe differences where necessary.
-
-Lesson 3 — Tech stack, versions, and local/dev/prod parity
+## Tech stack, versions, and local/dev/prod parity
 
 1) Chosen stack & pinned versions (recommended)
 
